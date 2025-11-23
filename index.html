@@ -5,6 +5,83 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stereo Test</title>
     <style>
+        /* Password screen */
+        .password-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+        }
+
+        .password-screen.hidden {
+            display: none;
+        }
+
+        .password-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+
+        .password-box h2 {
+            margin-bottom: 20px;
+            color: #667eea;
+        }
+
+        .password-box input {
+            padding: 15px;
+            font-size: 18px;
+            border: 2px solid #667eea;
+            border-radius: 10px;
+            width: 250px;
+            text-align: center;
+        }
+
+        .password-box button {
+            margin-top: 20px;
+            padding: 15px 40px;
+            font-size: 18px;
+            background: #87CEEB;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .password-error {
+            color: red;
+            margin-top: 10px;
+            display: none;
+        }
+
+        /* Confetti */
+        .confetti {
+            position: fixed;
+            width: 10px;
+            height: 10px;
+            background: #f0f;
+            z-index: 9999;
+            pointer-events: none;
+            animation: confetti-fall 3s linear forwards;
+        }
+
+        @keyframes confetti-fall {
+            to {
+                transform: translateY(100vh) rotate(360deg);
+                opacity: 0;
+            }
+        }
+
         * {
             margin: 0;
             padding: 0;
@@ -192,7 +269,7 @@
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            z-index: 1000;
+            z-index: 9998;
             animation: fadeIn 0.5s ease;
         }
 
@@ -218,6 +295,15 @@
             font-size: 96px;
             font-weight: bold;
             text-shadow: 4px 4px 8px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+
+        .end-reaction {
+            color: white;
+            font-size: 48px;
+            font-weight: bold;
+            text-shadow: 4px 4px 8px rgba(0,0,0,0.3);
+            opacity: 0.9;
         }
 
         /* Controller styles */
@@ -261,10 +347,12 @@
             display: flex;
             gap: 15px;
             margin-top: auto;
+            flex-wrap: wrap;
         }
 
         .action-button {
             flex: 1;
+            min-width: 150px;
             padding: 20px;
             border: none;
             border-radius: 15px;
@@ -287,6 +375,39 @@
 
         .end-button {
             background: #f44336;
+        }
+
+        .test-button-action {
+            background: #9C27B0;
+        }
+
+        .music-button {
+            background: #2196F3;
+        }
+
+        .music-button.playing {
+            background: #FF5722;
+        }
+
+        .click-log {
+            background: rgba(255,255,255,0.9);
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            font-size: 16px;
+            color: #667eea;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+
+        .click-log-item {
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .click-log-item:last-child {
+            border-bottom: none;
         }
 
         .status {
@@ -340,10 +461,24 @@
             .end-accuracy {
                 font-size: 64px;
             }
+
+            .end-reaction {
+                font-size: 32px;
+            }
         }
     </style>
 </head>
 <body>
+    <!-- Password Screen -->
+    <div class="password-screen" id="passwordScreen">
+        <div class="password-box">
+            <h2>Zadejte heslo</h2>
+            <input type="password" id="passwordInput" placeholder="Heslo">
+            <div class="password-error" id="passwordError">Nesprávné heslo!</div>
+            <button onclick="checkPassword()">Vstoupit</button>
+        </div>
+    </div>
+
     <div class="mode-switch">
         <button class="mode-button active" id="displayModeBtn">Display</button>
         <button class="mode-button" id="controllerModeBtn">Controller</button>
@@ -356,6 +491,7 @@
         <div class="end-screen" id="endScreen">
             <div class="end-title">Test ukončen</div>
             <div class="end-accuracy" id="endAccuracy">0%</div>
+            <div class="end-reaction" id="endReaction">Průměrný čas: 0ms</div>
         </div>
 
         <div class="header">
@@ -386,6 +522,10 @@
 
         <div class="status" id="status">Připraveno</div>
 
+        <div class="click-log" id="clickLog">
+            <strong>Historie kliknutí:</strong>
+        </div>
+
         <div class="main-buttons">
             <button class="control-button" data-direction="center">Uprostřed</button>
             <button class="control-button" data-direction="right">Vpravo</button>
@@ -395,10 +535,36 @@
         <div class="action-buttons">
             <button class="action-button reset-button" id="resetBtn">Reset</button>
             <button class="action-button end-button" id="endBtn">Ukončit</button>
+            <button class="action-button test-button-action" id="testBtn">Stereo Test</button>
+            <button class="action-button music-button" id="musicBtn">Hudba ▶</button>
         </div>
     </div>
 
+    <audio id="musicPlayer" loop>
+        <source src="hudba.mp3" type="audio/mpeg">
+    </audio>
+
     <script type="module">
+        // Password check
+        window.checkPassword = function() {
+            const input = document.getElementById('passwordInput');
+            const error = document.getElementById('passwordError');
+            const screen = document.getElementById('passwordScreen');
+            
+            if (input.value === 'skola1') {
+                screen.classList.add('hidden');
+            } else {
+                error.style.display = 'block';
+                input.value = '';
+            }
+        };
+
+        document.getElementById('passwordInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                checkPassword();
+            }
+        });
+
         // Firebase Config
         const firebaseConfig = {
             apiKey: "AIzaSyDpdpj6Qs_vipW1cZO7wiORiTqk6ZRpxP0",
@@ -456,6 +622,29 @@
 
         const endScreen = document.getElementById('endScreen');
         const endAccuracy = document.getElementById('endAccuracy');
+        const endReaction = document.getElementById('endReaction');
+        const musicPlayer = document.getElementById('musicPlayer');
+        
+        // Set music volume to 50%
+        musicPlayer.volume = 0.5;
+
+        // Confetti function
+        function createConfetti() {
+            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffa500'];
+            for (let i = 0; i < 100; i++) {
+                setTimeout(() => {
+                    const confetti = document.createElement('div');
+                    confetti.className = 'confetti';
+                    confetti.style.left = Math.random() * 100 + '%';
+                    confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+                    confetti.style.animationDelay = Math.random() * 0.5 + 's';
+                    confetti.style.animationDuration = (Math.random() * 2 + 2) + 's';
+                    document.body.appendChild(confetti);
+                    
+                    setTimeout(() => confetti.remove(), 5000);
+                }, i * 30);
+            }
+        }
 
         // Better sound generation
         function playCorrectSound() {
@@ -545,13 +734,25 @@
         onValue(ref(db, 'testEnded'), (snapshot) => {
             if (snapshot.val() === true) {
                 const accuracy = calculateAccuracy();
+                const avgReaction = calculateAverageReaction();
                 endAccuracy.textContent = `${accuracy}%`;
+                endReaction.textContent = `Průměrný čas: ${avgReaction}ms`;
                 endScreen.classList.add('active');
+                createConfetti();
 
                 setTimeout(() => {
                     endScreen.classList.remove('active');
                     set(ref(db, 'testEnded'), false);
                 }, 5000);
+            }
+        });
+
+        onValue(ref(db, 'musicPlaying'), (snapshot) => {
+            const isPlaying = snapshot.val();
+            if (isPlaying) {
+                musicPlayer.play().catch(e => console.log('Autoplay blocked:', e));
+            } else {
+                musicPlayer.pause();
             }
         });
 
@@ -589,6 +790,16 @@
 
                 updateAccuracy();
 
+                // Log click to Firebase
+                const timestamp = new Date().toLocaleTimeString('cs-CZ');
+                const clickData = {
+                    time: timestamp,
+                    button: dir === 'left' ? 'Vlevo' : dir === 'center' ? 'Uprostřed' : 'Vpravo',
+                    correct: isCorrect,
+                    reactionTime: reactionTime
+                };
+                set(ref(db, 'lastClick'), clickData);
+
                 currentTest = null;
                 testStartTime = null;
             });
@@ -611,6 +822,23 @@
             return total > 0 ? Math.round((correct / total) * 100) : 0;
         }
 
+        function calculateAverageReaction() {
+            let total = 0;
+            let count = 0;
+
+            Object.values(histories).forEach(history => {
+                const items = history.querySelectorAll('.history-item');
+                items.forEach(item => {
+                    const timeText = item.querySelector('.time').textContent;
+                    const time = parseInt(timeText.replace('ms', ''));
+                    total += time;
+                    count++;
+                });
+            });
+
+            return count > 0 ? Math.round(total / count) : 0;
+        }
+
         function updateAccuracy() {
             const accuracy = calculateAccuracy();
             document.getElementById('accuracy').textContent = `Přesnost: ${accuracy}%`;
@@ -621,6 +849,27 @@
         const controlButtons = document.querySelectorAll('.control-button');
         const resetBtn = document.getElementById('resetBtn');
         const endBtn = document.getElementById('endBtn');
+        const testBtn = document.getElementById('testBtn');
+        const musicBtn = document.getElementById('musicBtn');
+        const clickLog = document.getElementById('clickLog');
+
+        let isMusicPlaying = false;
+
+        // Listen for clicks from display
+        onValue(ref(db, 'lastClick'), (snapshot) => {
+            const data = snapshot.val();
+            if (data) {
+                const logItem = document.createElement('div');
+                logItem.className = 'click-log-item';
+                logItem.textContent = `${data.time} - ${data.button} (${data.reactionTime}ms) ${data.correct ? '✓' : '✗'}`;
+                clickLog.appendChild(logItem);
+                
+                // Keep only last 5 items
+                while (clickLog.children.length > 6) { // +1 for header
+                    clickLog.removeChild(clickLog.children[1]);
+                }
+            }
+        });
 
         controlButtons.forEach(btn => {
             btn.addEventListener('click', async () => {
@@ -650,7 +899,9 @@
         resetBtn.addEventListener('click', async () => {
             try {
                 await remove(ref(db, 'currentTest'));
+                await remove(ref(db, 'lastClick'));
                 await set(ref(db, 'reset'), true);
+                clickLog.innerHTML = '<strong>Historie kliknutí:</strong>';
                 
                 status.textContent = 'Vše resetováno';
                 status.style.background = 'rgba(255, 152, 0, 0.2)';
@@ -678,6 +929,69 @@
                 } catch (error) {
                     console.error('Chyba:', error);
                 }
+            }
+        });
+
+        // Stereo test button
+        testBtn.addEventListener('click', async () => {
+            status.textContent = 'Spouštím stereo test...';
+            status.style.background = 'rgba(156, 39, 176, 0.2)';
+            testBtn.disabled = true;
+
+            await new Promise(resolve => setTimeout(resolve, 3000));
+
+            const sequence = [
+                { dir: 'left', count: 3 },
+                { dir: 'center', count: 3 },
+                { dir: 'right', count: 3 }
+            ];
+
+            for (const { dir, count } of sequence) {
+                for (let i = 0; i < count; i++) {
+                    await set(ref(db, 'currentTest'), {
+                        direction: dir,
+                        timestamp: Date.now()
+                    });
+                    await new Promise(resolve => setTimeout(resolve, 800));
+                }
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+
+            status.textContent = 'Stereo test dokončen';
+            status.style.background = 'rgba(76, 175, 80, 0.2)';
+            testBtn.disabled = false;
+
+            setTimeout(() => {
+                status.textContent = 'Připraveno';
+                status.style.background = 'rgba(255,255,255,0.9)';
+            }, 2000);
+        });
+
+        // Music button
+        musicBtn.addEventListener('click', async () => {
+            isMusicPlaying = !isMusicPlaying;
+            
+            try {
+                await set(ref(db, 'musicPlaying'), isMusicPlaying);
+                
+                if (isMusicPlaying) {
+                    musicBtn.textContent = 'Hudba ⏸';
+                    musicBtn.classList.add('playing');
+                    status.textContent = 'Hudba spuštěna';
+                } else {
+                    musicBtn.textContent = 'Hudba ▶';
+                    musicBtn.classList.remove('playing');
+                    status.textContent = 'Hudba zastavena';
+                }
+                
+                status.style.background = 'rgba(33, 150, 243, 0.2)';
+                
+                setTimeout(() => {
+                    status.textContent = 'Připraveno';
+                    status.style.background = 'rgba(255,255,255,0.9)';
+                }, 1500);
+            } catch (error) {
+                console.error('Chyba:', error);
             }
         });
     </script>
